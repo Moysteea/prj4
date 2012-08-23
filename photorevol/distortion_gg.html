@@ -1,0 +1,178 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	<script type="text/javascript">
+	// 참고... from http://www.splashnology.com/article/pixel-distortions-with-bilinear-filtration-in-html5-canvas/4739/ 
+	// 참고... from http://jsfiddle.net/UF4PK/
+	window.onload = function() {
+	var Mapper = function(width,height,filter) {
+	    
+	    var map = [];
+	    
+	    this.flower = function(px,py) {
+	        var x = px-width/2;
+	        var y = py-height/2;
+	        var r = Math.sqrt(x*x+y*y);
+	        var maxr = width/2;
+	        var a = Math.atan2(y,x);
+	        var d = r*Math.sin(a*7);
+	        // if (d>0) return {'x':px,'y':py}
+	        return {
+	            'x': px+Math.cos(a)*d*0.4,
+	            'y': py+Math.sin(a)*d*0.4
+	        }
+	    }
+	    
+	    this.pyramid = function(px,py) {
+	        px = px - height/2;
+	        py = py - height/2;
+	        var distance = Math.max(Math.abs(px),Math.abs(py));
+	        px *= distance/width*2;
+	        py *= distance/height*2;
+	        return {
+	            'x': px+width/2,
+	            'y': py+height/2
+	        }
+	    }
+	    
+	    this.zoom = function(px,py) {
+	        return {
+	            'x': (px+width/2)*0.5,
+	            'y': (py+height/2)*0.5
+	        }
+	    }
+	    
+
+	    this.reflect = function(px,py) {
+	        if (py<height/2) return {
+	            'x': px,
+	            'y': py
+	        }
+	        var dx = (py-height/2)*(-px+width/2)/width;
+	        return {
+	            'x': px+dx,
+	            'y': height-py
+	        }
+	    }
+	    
+	    this.twirl = function(px,py) {
+	        var x = px-width/2;
+	        var y = py-height/2;
+	        var r = Math.sqrt(x*x+y*y);
+	        var maxr = width/2;
+	        if (r>maxr) return {'x':px,'y':py}
+	        var a = Math.atan2(y,x);
+	        a += 1-r/maxr;
+	        var dx = Math.cos(a)*r;
+	        var dy = Math.sin(a)*r;
+	        return {
+	            'x': dx+width/2,
+	            'y': dy+height/2
+	        }
+	    }
+	    
+	    this.spherize = function(px,py) {
+	        var x = px-width/2;
+	        var y = py-height/2;
+	        var r = Math.sqrt(x*x+y*y);
+	        var maxr = width/2;
+	        if (r>maxr) return {'x':px,'y':py}
+	        var a = Math.atan2(y,x);
+	        var k = (r/maxr)*(r/maxr)*0.5+0.5;
+	        var dx = Math.cos(a)*r*k;
+	        var dy = Math.sin(a)*r*k;
+	        return {
+	            'x': dx+width/2,
+	            'y': dy+height/2
+	        }
+	    }
+	    
+
+	    this.exec = function(bitmap, texture) {
+	        var height = bitmap.height;
+	        var width = bitmap.width;
+	        var colorat = function(x,y,channel) {
+	            return texture.data[(x+y*height)*4+channel];
+	        }
+	        for (var j=0; j<height; j++) {
+	            for (var i=0; i<width; i++) {
+	                var u = map[(i+j*height)*2];
+	                var v = map[(i+j*height)*2+1];
+	                var x = Math.floor(u);
+	                var y = Math.floor(v);
+	                var kx = u-x;
+	                var ky = v-y;
+	                for (var c=0; c<4; c++) {
+	                    bitmap.data[(i+j*height)*4+c] =
+	                        (colorat(x,y  ,c)*(1-kx) + colorat(x+1,y  ,c)*kx) * (1-ky) +
+	                        (colorat(x,y+1,c)*(1-kx) + colorat(x+1,y+1,c)*kx) * (ky);
+	                }
+	            }
+	        }
+	    };
+	    
+	    this.setTranslate = function(translator) {
+	        if (typeof translator === 'string') translator = this[translator];
+	        for (var y=0; y<height; y++) {
+	            for (var x=0; x<width; x++) {
+	                var t = translator(x,y);
+	                map[(x+y*height)*2+0] = Math.max(Math.min(t.x,width-1),0);
+	                map[(x+y*height)*2+1] = Math.max(Math.min(t.y,height-1),0);
+	            }
+	        }
+	    }
+
+	    this.setTranslate(filter);
+	}
+		var image = document.getElementById("myImage");	
+	    var src = document.getElementById('src');
+	    	src.width = image.width;
+	    	src.height = image.height;
+	    var dst = document.getElementById('dst');
+	    var input = src.getContext('2d');
+	    var output = dst.getContext('2d');
+	    
+	    input.drawImage(image, 0, 0);
+	   
+	    // executing
+	    var bitmap = output.getImageData(0,0,dst.width,dst.height);
+	    var mapper = new Mapper(bitmap.width,bitmap.height,'flower');
+	    var buttons = document.getElementsByTagName('input');
+	    for (var i in buttons) {
+	        buttons[i].onclick = function(){mapper.setTranslate(this.id)};
+	    }
+	    
+	    var locked = false;
+	    src.onmousemove = dst.onmousemove = function(e) {
+	        if (locked) return;
+	        locked = true;
+	        var texture = input.getImageData(e.clientX-Math.ceil(bitmap.width/2),e.clientY-Math.ceil(bitmap.height/2),bitmap.width,bitmap.height+1);
+	        dst.style.left = e.clientX-Math.floor(dst.width/2)+'px';
+	        dst.style.top = e.clientY-(Math.floor(dst.height/2))+'px';
+	        mapper.exec(bitmap,texture);
+	        output.putImageData(bitmap,0,0);
+	        locked = false;
+	    }
+	}
+	
+	</script>
+</head>
+<body style="margin:0;">
+    
+    <div style="position: relative; z-index: 1">
+        <canvas id="src">DIE IE!</canvas>
+        <canvas id="dst" width="100" height="100" style='position: absolute; z-index: 2'>DIE IE!</canvas>
+    </div>
+    <div style="position: relative; z-index: 2">
+        <input type="button" id="spherize" value="spherize"/>
+        <input type="button" id="zoom" value="zoom"/>
+        <input type="button" id="twirl" value="twirl"/>
+        <input type="button" id="reflect" value="reflect"/>
+        <input type="button" id="pyramid" value="pyramid"/>
+        <input type="button" id="flower" value="flower"/>
+    </div>
+    <image id="myImage" src="image/photo_2.jpeg"></image>
+</body>
+</html>​
