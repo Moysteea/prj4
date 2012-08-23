@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="EUC_KR">
+<title>Image distortion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, mininum-scale=1.0, user_scalable=no">
+<script type="text/javascript" src="js/ccv.js"></script>
+<script type="text/javascript" src="js/face.js"></script>
+<script type="text/javascript" src="js/todataurl.js"></script>
+
+<script>
+//http://lodev.org/cgtutor/filtering.html#Convolution : 설명 페이
+var MainCanvas
+	window.onload=function()
+	{
+		MainCanvas = document.getElementById("myCanvas");
+	 	context = MainCanvas.getContext("2d");
+		//마우스이벤트 등록
+		document.addEventListener('touchstart', function(event) {
+   // alert(event.touches.length);
+   			event.preventDefault();
+			var touch = event.touches[0];  
+			m_nKeyPointX = touch.pageX *m_nKeyScaleX;
+		   	m_nKeyPointY = touch.pageY *m_nKeyScaleY;
+		}, false);
+		document.addEventListener('touchmove', function(event) {
+			   // alert(event.touches.length);
+			event.preventDefault();
+			var touch = event.touches[0];   
+			m_nMovePointX = touch.pageX *m_nKeyScaleX;
+			m_nMovePointY = touch.pageY *m_nKeyScaleY;
+			//alert("m_nMovePointX = "+m_nMovePointX);
+			}, false);
+		document.addEventListener('touchend', function(event) {
+			   // alert(event.touches.length);
+			event.preventDefault();
+			var touch = event.touches[0];   
+			m_nFirstPointX = 0;
+			m_nFirstPointY = 0;
+			m_nUpPointX = touch.pageX *m_nKeyScaleX;
+			m_nUpPointY = touch.pageY *m_nKeyScaleY;
+			alert("m_nUpPointX = "+m_nUpPointX);
+			}, false);
+	  	//document.body.touchstart = mouseDown;
+	  	//document.body.touchmove = mouseMove;
+	  	//document.body.touchend = mouseUp;
+	  
+	  	initGame();
+	 	setInterval(drawCanvas, 50);
+	 
+	}
+	
+	var color;
+	var canvas = 0;
+	var context;
+	
+	
+	var m_nScrWidth = 0;
+	var m_nScrHeight = 0;
+	var m_nKeyCode = 0;
+	var m_nKeyPointX = 0;
+	var m_nKeyPointY = 0;
+	var m_nFirstMoveX = 0;
+	var m_nFirstMoveY = 0;
+	var m_nMovePointX = 0;
+	var m_nMovePointY = 0;
+	var m_nFirstPointX = 0;
+	var m_nFirstPointY = 0;
+	var m_nUpPointX = 0;
+	var m_nUpPointY = 0;
+	var m_nCenterX = 0;
+	var m_nCenterY = 0;
+	var m_nScaleX;
+	var m_nScaleY;
+	var m_nKeyScaleX;
+	var m_nKeyScaleY;
+		
+	
+	
+ 	var No_Flip = 0;
+	var FLIP_90 = 1;
+	var FLIP_180 = 2;
+	var FLIP_270 = 3;
+	var Y_Flip = 1;							
+	var X_Flip = 2;						
+	var XY_Flip = 3;					
+	var Rotated_90_CW = 4;								
+	var Rotated_90_CCW = 5;
+	
+	var FALSE = 0;
+	var TRUE = 1;
+	
+	
+	var _BlendNone = 0;	
+	var _BlendScreen = 1;	
+	var _BlendAlpha = 2;	
+	
+	function initGame()
+	{
+		MainCanvas.height = MainCanvas.width *1.5;
+		m_nScrWidth = 480;
+		m_nScrHeight = 800;
+		m_nScaleX = MainCanvas.width /m_nScrWidth;
+		m_nScaleY = MainCanvas.height /m_nScrHeight;
+		m_nKeyScaleX = m_nScrWidth /MainCanvas.width;
+		m_nKeyScaleY = m_nScrHeight /MainCanvas.height;
+		
+		m_nGameMode = 0;
+		m_nMainCycle = 0;
+		m_nKeyCode = -100;
+		m_nKeyPointX = 0;
+		m_nKeyPointY = 0;
+		m_nTouchPressX = 0;
+		m_nTouchPressY = 0;
+		m_nFirstPointX = 0;
+		m_nFirstPointY = 0;
+		m_nCenterX = m_nScrWidth /2;
+		m_nCenterY = m_nScrHeight /2;
+		
+		changeGameMode( GAME_MODE_MAIN );
+	}
+	
+	//마우스 다운 이벤트
+	function mouseDown(e)
+	{  
+		//클릭한 곳이 캔버스 안인지 여부를 판별
+	  	var target = e.target.nodeName;
+	  	if( target != "CANVAS") return;// 캔버스 영역이 아니라면 메소드 종료
+	   	m_nKeyPointX = e.offsetX;
+	   	m_nKeyPointY = e.offsetY;
+	   	m_nFirstPointX = m_nKeyPointX;
+	   	m_nFirstPointY = m_nKeyPointY;
+	   	m_nFirstMoveX = m_nKeyPointX;
+	   	m_nFirstMoveY = m_nKeyPointY;
+	   	m_nMovePointX = m_nKeyPointX;
+		m_nMovePointY = m_nKeyPointY;
+	 }
+	 
+	 //마우스 이벤트 무브
+	 function mouseMove(e)
+	 {  
+		//클릭한 곳이 캔버스 안인지 여부를 판별
+		var target = e.target.nodeName;
+		if( target != "CANVAS") return;// 캔버스 영역이 아니라면 메소드 종료
+		m_nMovePointX = e.offsetX;
+		m_nMovePointY = e.offsetY;
+	 }
+	 
+	//마우스 이벤트 무브
+	 function mouseUp(e)
+	 {  
+		//클릭한 곳이 캔버스 안인지 여부를 판별
+		var target = e.target.nodeName;
+		if( target != "CANVAS") return;// 캔버스 영역이 아니라면 메소드 종료
+		m_nFirstPointX = 0;
+		m_nFirstPointY = 0;
+		m_nUpPointX = e.offsetX;
+		m_nUpPointY = e.offsetY;
+	 }
+	
+	//화면 그리는 함수
+	function drawCanvas()
+	{
+		processGame();
+		drawGame(canvas);
+		m_nKeyPointX = 0;
+ 		m_nKeyPointY = 0;
+ 		m_nUpPointX = 0;
+ 		m_nUpPointY = 0;
+ 		m_nKeyCode = -100;
+	}
+	
+	function CopyImage( canvas, sx, sy, dx, dy, Img, xx, yy, width,  height, flip,  alpha,  blending  )
+	{
+		//context.globalAlpha = 0.5;
+		context.save();
+		//context.rotate(m_nMainCycle /10);
+		context.drawImage(Img,xx,yy,width,height,Math.floor(sx *m_nScaleX),Math.floor(sy*m_nScaleY),Math.floor(dx *m_nScaleX),Math.floor(dy*m_nScaleY));
+		context.restore();
+	}
+	
+	function  Random( iMin, iMax)
+	{
+		//var nRand = Math.floor(Math.random() *100);
+		var nRand = Math.random() *100;
+		// 음수 제거
+		if(nRand < 0)
+		{
+			nRand *= (-1);
+		}
+		nRand = nRand %( iMax - iMin );
+		return (nRand +iMin);
+	}
+ 
+	function bFillRect( canvas, sx, sy, dx, dy, r, g, b, a, _blending )
+	{
+ 		//context.restore();
+ 		var color = "rgba("+r+","+g+","+b+",1)";
+ 		context.save();
+ 		//context.fillStyle='rgba(255,0,0,1)';
+ 		//context.fillStyle='#FFff00';
+ 		context.fillStyle = color;
+		context.fillRect(Math.floor(sx *m_nScaleX),Math.floor(sy*m_nScaleY),Math.floor(dx *m_nScaleX),Math.floor(dy*m_nScaleY));
+		context.restore();
+	}
+ 	
+ 	function bDrawRect( canvas, sx, sy, dx, dy, r, g, b, alpha, blending )
+	{
+ 		var color = "rgba("+r+","+g+","+b+",1)";
+ 		//context.restore();
+ 		//context.fillStyle="rgba(r,g,b,1)";
+ 		//context.strokeStyle='#FF0000';
+ 		context.save();
+ 		context.strokeStyle = color;
+		context.strokeRect(Math.floor(sx *m_nScaleX),Math.floor(sy*m_nScaleY),Math.floor(dx *m_nScaleX),Math.floor(dy*m_nScaleY));
+		context.restore();
+	}
+ 	//표준 폰트 스타일 : normal | italic | oblique | inherit
+    //표준 폰트 두께 : normal | bold | bolder | lighter | 100 ~ 900 | inherit | auto
+    //표준 폰트 모양 : serif , sans-serif , cursive , fantasy , monospace
+    var m_nFontSize;
+    function setFionSize(size)
+	{
+    	m_nFontSize = Math.floor(size *m_nScaleY);
+	}
+ 	function putStrCenter( canvas, sx, sy, str, r, g, b )
+	{
+ 		color = "rgba("+r+","+g+","+b+",1)";
+ 		context.save();
+ 		//context.font="20px sans-serif";
+ 		//context.font="italic bold 24px serif";
+ 		//context.font="normal lighter 24px cursive";
+ 		context.font="italic bolder "+m_nFontSize+"px monospace";
+		//context.fillStyle="yellow";
+		
+		context.fillStyle = color;
+		context.textAlign = 'center';
+		context.fillText(str, Math.floor(sx *m_nScaleX), Math.floor((sy +m_nFontSize) *m_nScaleY));
+		context.restore();
+	}
+	
+ 	function putStr( canvas, sx, sy, str, r, g, b )
+	{
+ 		color = "rgba("+r+","+g+","+b+",1)";
+ 		context.save();
+ 		//context.font="20px sans-serif";
+ 		//context.font="italic bold 24px serif";
+ 		//context.font="normal lighter 24px cursive";
+ 		context.font="italic bolder "+m_nFontSize+"px monospace";
+		//context.fillStyle="yellow";
+		context.textAlign = 'left';
+ 		context.fillStyle = color;
+		context.fillText(str, Math.floor(sx *m_nScaleX), Math.floor((sy +m_nFontSize) *m_nScaleY));
+		context.restore();
+	}
+	
+ 	function putStrRight( canvas, sx, sy, str, r, g, b )
+	{
+ 		context.save();
+ 		color = "rgba("+r+","+g+","+b+",1)";
+ 		context.font="italic bolder "+m_nFontSize+"px monospace";
+ 		context.fillStyle = color;
+ 		context.textAlign = 'right';
+		context.fillText(str, Math.floor(sx *m_nScaleX), Math.floor((sy +m_nFontSize) *m_nScaleY));
+		context.restore();
+	}
+
+//========================================================================================================================================
+//  
+//========================================================================================================================================
+	var GAME_MODE_MAIN = 1000;
+	var GAME_MODE_MIX = 2000;
+	var GAME_MODE_MIX_RESULT = 3000;
+	var GAME_MODE_DISTORTION = 4000;
+	var GAME_MODE_DISTORTION_RESULT = 5000;
+	
+	var m_nGameMode = 0;
+	var m_nMainCycle = 0;
+	
+ 	var Img_DisOriginal = new Image();
+ 	var Img_DisResult = new Image();
+ 	var Img_Mix1 = new Image();
+ 	var Img_Mix2 = new Image();
+ 	var Img_MixOriginal = new Image();
+ 	var Img_MixResult = new Image();
+ 	var m_nFaceIdx;
+ 	
+	function changeGameMode( nMode )
+ 	{
+		switch(nMode)
+		{
+		case GAME_MODE_MAIN:
+			break;
+		case GAME_MODE_MIX:
+			Img_Mix1 = null;
+			Img_Mix2 = null;
+			Img_MixOriginal = null;
+			Img_MixResult = null;
+			
+			Img_Mix1 = new Image();
+		 	Img_Mix2 = new Image();
+		 	Img_MixOriginal = new Image();
+		 	Img_MixResult = new Image();
+			break;
+		case GAME_MODE_MIX_RESULT:
+			checkFace1(Img_Mix1);
+		 	checkFace2(Img_Mix2);
+		 	
+		 	var sx1, sy1, dx1, dy1, sx2, sy2, dx2, dy2;
+ 			sx1 = comp1[0].x +comp1[0].width /12;
+ 	 		sy1 = comp1[0].y +comp1[0].height /8;
+ 	 		dx1 = comp1[0].width -comp1[0].width /10;
+ 	 		dy1 = comp1[0].height -comp1[0].height /16;
+ 	 		
+ 	 		sx2 = comp2[0].x +comp2[0].width /12;
+ 	 		sy2 = comp2[0].y +comp2[0].height /8;
+ 	 		dx2 = comp2[0].width -comp2[0].width /10;
+ 	 		dy2 = comp2[0].height -comp2[0].height /16;
+ 	 		
+ 	 		Img_MixOriginal.src = GetImageMix(Img_Mix2, sx2, sy2, dx2, dy2, Img_Mix1, sx1, sy1, dx1, dy1);
+			break;
+		case GAME_MODE_DISTORTION:
+			Img_DisOriginal = null;
+			Img_DisResult = null;
+			
+			Img_DisOriginal = new Image();
+			Img_DisResult = new Image();
+			//Img_DisOriginal.width = 0;
+			//Img_DisOriginal.src = "image/photo_2.jpeg";
+			break;
+		case GAME_MODE_DISTORTION_RESULT:
+			m_nFaceIdx = 0;
+			Img_DisResult.src = GetImageOriginal(Img_DisOriginal);
+			checkFace1(Img_DisOriginal);
+			break;
+		}
+		m_nGameMode = nMode;
+		m_nMainCycle = 0;
+ 	}
+	
+ 	function processGame()
+ 	{
+ 		var psx, psy, pdx, pdy;
+ 		switch(m_nGameMode)
+		{
+		case GAME_MODE_MAIN:
+			if( m_nKeyPointX > 0 )
+			{
+				if( m_nKeyPointX > m_nCenterX -200 && m_nKeyPointX < m_nCenterX -200 +400 &&  
+						m_nKeyPointY > m_nCenterY -200 && m_nKeyPointY < m_nCenterY -200 +100 )
+				{
+					changeGameMode(GAME_MODE_DISTORTION);
+					return;
+				}
+				else if( m_nKeyPointX > m_nCenterX -200 && m_nKeyPointX < m_nCenterX -200 +400 &&  
+						m_nKeyPointY > m_nCenterY +0 && m_nKeyPointY < m_nCenterY +0 +100 )
+				{
+					changeGameMode(GAME_MODE_MIX);
+					return;
+				}
+			}
+			break;
+		case GAME_MODE_MIX:
+			if( m_nKeyPointX > 0 )
+			{
+				if( m_nKeyPointX > m_nCenterX -220 && m_nKeyPointX < m_nCenterX -220 +200 &&  
+						m_nKeyPointY > m_nCenterY +100 && m_nKeyPointY < m_nCenterY +100 +50 )
+				{
+					Img_Mix1.src = "image/photo_2.jpeg";
+					//return;
+				}
+				else if( m_nKeyPointX > m_nCenterX +20 && m_nKeyPointX < m_nCenterX +20 +200 &&  
+						m_nKeyPointY > m_nCenterY +100 && m_nKeyPointY < m_nCenterY +100 +50 )
+				{
+					Img_Mix2.src = "image/photo_1.jpeg";
+					return;
+				}
+				else if( m_nKeyPointX > 0 && m_nKeyPointX < m_nScrWidth &&  
+						m_nKeyPointY > m_nCenterY +250 && m_nKeyPointY < m_nCenterY +250 +50 )
+				{
+					//Img_DisOriginal.src = "image/photo_1.jpeg";
+					changeGameMode(GAME_MODE_MIX_RESULT);
+					return;
+				}
+			}
+			break;
+		case GAME_MODE_MIX_RESULT:
+			break;
+		case GAME_MODE_DISTORTION:
+			//m_nCenterX -220, m_nCenterY +100, 200, 50
+			if( m_nKeyPointX > 0 )
+			{
+				if( m_nKeyPointX > m_nCenterX -220 && m_nKeyPointX < m_nCenterX -220 +200 &&  
+						m_nKeyPointY > m_nCenterY +100 && m_nKeyPointY < m_nCenterY +100 +50 )
+				{
+					/*
+					try { 
+						  op = mainCamera.captureImage( 
+						      onCaptureImageSuccess,  
+						      onCaptureImageError, 
+						      {destinationFilename:"images/a.jpg", highRes:true} 
+						  ); 
+						} catch(exp) { 
+						  alert("captureImage Exception :[" + exp.code + "] " + exp.message); 
+						}
+					//Img_DisOriginal.src = "image/photo_2.jpeg";
+					//return;
+					*/
+				}
+				else if( m_nKeyPointX > m_nCenterX +20 && m_nKeyPointX < m_nCenterX +20 +200 &&  
+						m_nKeyPointY > m_nCenterY +100 && m_nKeyPointY < m_nCenterY +100 +50 )
+				{
+					Img_DisOriginal.src = "image/photo_1.jpeg";
+					return;
+				}
+				else if( m_nKeyPointX > 0 && m_nKeyPointX < m_nScrWidth &&  
+						m_nKeyPointY > m_nCenterY +250 && m_nKeyPointY < m_nCenterY +250 +50 )
+				{
+					//Img_DisOriginal.src = "image/photo_1.jpeg";
+					changeGameMode(GAME_MODE_DISTORTION_RESULT);
+					return;
+				}
+			}
+			break;
+		case GAME_MODE_DISTORTION_RESULT:
+			if( m_nKeyPointX > 0 )
+			{
+				if( m_nKeyPointX < 50 &&  
+						m_nKeyPointY > m_nCenterY -100 && m_nKeyPointY < m_nCenterY -100 +200 )
+				{
+					//m_nFaceIdx = Math.floor((m_nKeyPointY -( m_nCenterY -100)) /50);
+					
+					if( m_nFaceIdx != Math.floor((m_nKeyPointY -( m_nCenterY -100)) /50) )
+					{
+						m_nFaceIdx = Math.floor((m_nKeyPointY -( m_nCenterY -100)) /50);
+						if( m_nFaceIdx == 0 )
+							Img_DisResult.src = GetImageOriginal(Img_DisOriginal);
+						else if( m_nFaceIdx == 1 )
+						{
+							if( comp1.length > 0 )
+			 				{
+			 					psx = Math.floor(comp1[0].x -comp1[0].width /2);
+			 					psy = Math.floor(comp1[0].y -comp1[0].height);
+			 					pdx = Math.floor(comp1[0].width *2);
+			 					pdy = Math.floor(comp1[0].height *2);
+			 					
+			 					if( pdx != pdy )
+			 					{
+			 						pdx = pdy;
+			 					}
+			 					if( pdx % 2 == 1 )
+			 	 				{
+			 						pdx = pdx -1;
+			 						pdy = pdy -1;
+			 	 				}
+			 					
+			 					
+			 					Img_DisResult.src = GetImagespherize(Img_DisOriginal, psx, psy, pdx, pdy );
+			 				}
+						}
+						else if( m_nFaceIdx == 2 )
+						{
+							if( comp1.length > 0 )
+			 				{
+								
+			 					psx = Math.floor(comp1[0].x +comp1[0].width /6);
+			 					psy = Math.floor(comp1[0].y +comp1[0].height /4.5);
+			 					pdx = Math.floor(comp1[0].width /3 );
+			 					pdy = pdx;//Math.floor(comp[0].height *2);
+			 					
+			 					if( pdx != pdy )
+			 					{
+			 						pdx = pdy;
+			 					}
+			 					if( pdx % 2 == 1 )
+			 	 				{
+			 						pdx = pdx -1;
+			 						pdy = pdy -1;
+			 	 				}
+			 					
+			 					
+			 					Img_DisResult.src = GetImagespherize(Img_DisOriginal, psx, psy, pdx, pdy );
+			 					/*
+			 					psx = Math.floor(comp1[0].x +comp1[0].width /6 *3.5);
+			 					psy = Math.floor(comp1[0].y +comp1[0].height /4.5);
+			 					pdx = Math.floor(comp1[0].width /3 );
+			 					pdy = pdx;//Math.floor(comp[0].height *2);
+			 					
+			 					if( pdx != pdy )
+			 					{
+			 						pdx = pdy;
+			 					}
+			 					if( pdx % 2 == 1 )
+			 	 				{
+			 						pdx = pdx -1;
+			 						pdy = pdy -1;
+			 	 				}
+			 					
+			 					
+			 					Img_DisResult.src = GetImagespherize(Img_DisResult, psx, psy, pdx, pdy );
+			 					*/
+			 					
+			 				}
+						}
+						else
+						{
+							if( comp1.length > 0 )
+			 				{
+			 					psx = Math.floor(comp1[0].x +comp1[0].width /2 -comp1[0].width /5);
+			 					psy = Math.floor(comp1[0].y +comp1[0].height /2.5);
+			 					pdx = Math.floor(comp1[0].width /2 );
+			 					pdy = pdx;//Math.floor(comp[0].height *2);
+			 					
+			 					if( pdx != pdy )
+			 					{
+			 						pdx = pdy;
+			 					}
+			 					if( pdx % 2 == 1 )
+			 	 				{
+			 						pdx = pdx -1;
+			 						pdy = pdy -1;
+			 	 				}
+			 					
+			 					
+			 					Img_DisResult.src = GetImagetwirl(Img_DisOriginal, psx, psy, pdx, pdy );
+			 					//Img_DisResult.src = GetImagetwirl(Img_DisResult, psx, psy, pdx, pdy );
+			 				}
+						}
+					}
+					
+				}
+			}
+			break;
+		}
+ 		
+ 		if( m_nKeyPointX > m_nCenterX -60 && m_nKeyPointX < m_nCenterX -60 +50 &&  
+				m_nKeyPointY > m_nScrHeight -60 && m_nKeyPointY < m_nScrHeight -60 +50 )
+ 		{
+ 			changeGameMode(GAME_MODE_MAIN);
+ 			return;
+ 		}
+ 		m_nMainCycle++;
+ 	}
+ 	
+ 	function drawGame(canvas)
+ 	{
+ 		bFillRect( canvas, 0, 0, m_nScrWidth, m_nScrHeight, 255, 255, 255, 0 );
+ 		bFillRect( canvas, 0, 0, m_nScrWidth, 70, 0, 0, 255, 0 );
+ 		bFillRect( canvas, 0, m_nScrHeight -70, m_nScrWidth, 90, 0, 255, 0, 0 );
+ 		
+ 		switch(m_nGameMode)
+		{
+		case GAME_MODE_MAIN:
+			setFionSize(30);
+			putStrCenter( canvas, m_nCenterX, 30, "Photo Revolution", 255, 255 ,255 ,0 );
+			
+			setFionSize(20);
+			bFillRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 128, 128, 128, 0 );
+			bDrawRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -35, m_nScrHeight -40, "Home", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Help", 0, 0 ,0 ,0 );
+			
+			setFionSize(50);
+			bFillRect( canvas, m_nCenterX -200, m_nCenterY -200, 400, 100, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -200, m_nCenterY -200, 400, 100, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX, m_nCenterY -175, "Distortion", 0, 0 ,0 ,0 );
+			bFillRect( canvas, m_nCenterX -200, m_nCenterY +0, 400, 100, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -200, m_nCenterY +0, 400, 100, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX, m_nCenterY +25, "Mix", 0, 0 ,0 ,0 );
+			break;
+		case GAME_MODE_MIX:
+			setFionSize(30);
+			putStrCenter( canvas, m_nCenterX, 30, "Photo Mix", 255, 255 ,255 ,0 );
+			setFionSize(20);
+			bFillRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -35, m_nScrHeight -40, "Home", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Help", 0, 0 ,0 ,0 );
+			
+			bDrawRect( canvas, m_nCenterX -220, m_nCenterY -250, 200, 300, 255, 0, 0, 0 ); //사진영역
+			bDrawRect( canvas, m_nCenterX +20, m_nCenterY -250, 200, 300, 255, 0, 0, 0 ); //사진영역
+			if( Img_Mix1.width > 0 )
+			{
+				CopyImage( canvas,  m_nCenterX -220, m_nCenterY -250, 200, 300, Img_Mix1, 0, 0, Img_Mix1.width, Img_Mix1.height, No_Flip, 0, _BlendNone );
+				
+			//	setFionSize(25);
+			//	bFillRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 255, 255, 255, 0 );
+			//	bDrawRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 0, 0, 0, 0 );
+			//	putStrCenter( canvas, m_nCenterX, m_nCenterY +265, "Distortion", 0, 0 ,0 ,0 );
+			}
+			
+			if( Img_Mix2.width > 0 )
+			{
+				CopyImage( canvas,  m_nCenterX +20, m_nCenterY -250, 200, 300, Img_Mix2, 0, 0, Img_Mix2.width, Img_Mix2.height, No_Flip, 0, _BlendNone );
+			}
+			setFionSize(25);
+			bFillRect( canvas, m_nCenterX -220, m_nCenterY +100, 200, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -220, m_nCenterY +100, 200, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -120, m_nCenterY +115, "Camera", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +20, m_nCenterY +100, 200, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +20, m_nCenterY +100, 200, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +120, m_nCenterY +115, "Album", 0, 0 ,0 ,0 );
+			
+			if( Img_Mix1.width > 0 &&  Img_Mix2.width > 0 )
+			{
+				setFionSize(25);
+				bFillRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 255, 255, 255, 0 );
+				bDrawRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 0, 0, 0, 0 );
+				putStrCenter( canvas, m_nCenterX, m_nCenterY +265, "Mix", 0, 0 ,0 ,0 );
+			}
+			break;
+		case GAME_MODE_MIX_RESULT:
+			setFionSize(30);
+			putStrCenter( canvas, m_nCenterX, 30, "Photo Mix", 255, 255 ,255 ,0 );
+			setFionSize(20);
+			bFillRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -35, m_nScrHeight -40, "Home", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Help", 0, 0 ,0 ,0 );
+			
+			bDrawRect( canvas, m_nCenterX -100, m_nCenterY -250, 200, 300, 255, 0, 0, 0 ); //사진영역 
+			
+			if( Img_MixOriginal.width > 0 )
+			{
+				CopyImage( canvas,  m_nCenterX -100, m_nCenterY -250, 200, 300, Img_MixOriginal, 0, 0, Img_MixOriginal.width, Img_MixOriginal.height, No_Flip, 0, _BlendNone );
+			//	if( comp1.length > 0 )
+			//	{
+			//		bDrawRect( canvas, m_nCenterX -100+comp1[0].x, m_nCenterY -250+comp1[0].y, comp1[0].width, comp1[0].height, 255, 0, 0, 0 );
+			//	}
+				
+				setFionSize(25);
+				bFillRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 255, 255, 255, 0 );
+				bDrawRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 0, 0, 0, 0 );
+				putStrCenter( canvas, m_nCenterX, m_nCenterY +265, "Save", 0, 0 ,0 ,0 );
+			}
+			break;
+		case GAME_MODE_DISTORTION:
+			setFionSize(30);
+			putStrCenter( canvas, m_nCenterX, 30, "Photo Distorition", 255, 255 ,255 ,0 );
+			setFionSize(20);
+			bFillRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -35, m_nScrHeight -40, "Home", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Help", 0, 0 ,0 ,0 );
+			
+			bDrawRect( canvas, m_nCenterX -100, m_nCenterY -250, 200, 300, 255, 0, 0, 0 ); //사진영역 
+			if( Img_DisOriginal.width > 0 )
+			{
+				CopyImage( canvas,  m_nCenterX -100, m_nCenterY -250, 200, 300, Img_DisOriginal, 0, 0, Img_DisOriginal.width, Img_DisOriginal.height, No_Flip, 0, _BlendNone );
+				
+				setFionSize(25);
+				bFillRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 255, 255, 255, 0 );
+				bDrawRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 0, 0, 0, 0 );
+				putStrCenter( canvas, m_nCenterX, m_nCenterY +265, "Distortion", 0, 0 ,0 ,0 );
+			}
+			
+			setFionSize(25);
+			bFillRect( canvas, m_nCenterX -220, m_nCenterY +100, 200, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -220, m_nCenterY +100, 200, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -120, m_nCenterY +115, "Camera", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +20, m_nCenterY +100, 200, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +20, m_nCenterY +100, 200, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +120, m_nCenterY +115, "Album", 0, 0 ,0 ,0 );
+			
+			
+			break;
+		case GAME_MODE_DISTORTION_RESULT:
+			setFionSize(30);
+			putStrCenter( canvas, m_nCenterX, 30, "Photo Distorition", 255, 255 ,255 ,0 );
+			setFionSize(20);
+			bFillRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX -60, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX -35, m_nScrHeight -40, "Home", 0, 0 ,0 ,0 );
+			
+			bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Help", 0, 0 ,0 ,0 );
+			
+			bDrawRect( canvas, m_nCenterX -100, m_nCenterY -250, 200, 300, 255, 0, 0, 0 ); //사진영역 
+			
+			if( Img_DisResult.width > 0 )
+			{
+				CopyImage( canvas,  m_nCenterX -100, m_nCenterY -250, 200, 300, Img_DisResult, 0, 0, Img_DisResult.width, Img_DisResult.height, No_Flip, 0, _BlendNone );
+			//	if( comp1.length > 0 )
+			//	{
+			//		bDrawRect( canvas, m_nCenterX -100+comp1[0].x, m_nCenterY -250+comp1[0].y, comp1[0].width, comp1[0].height, 255, 0, 0, 0 );
+			//	}
+				
+				setFionSize(25);
+				bFillRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 255, 255, 255, 0 );
+				bDrawRect( canvas, 0, m_nCenterY +250, m_nScrWidth, 50, 0, 0, 0, 0 );
+				putStrCenter( canvas, m_nCenterX, m_nCenterY +265, "Save", 0, 0 ,0 ,0 );
+			}
+			
+			//bFillRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 255, 255, 255, 0 );
+			//bDrawRect( canvas, m_nCenterX +10, m_nScrHeight -60, 50, 50, 0, 0, 0, 0 );
+			//putStrCenter( canvas, m_nCenterX +35, m_nScrHeight -40, "Ori", 0, 0 ,0 ,0 );
+			setFionSize(25);
+			for( var i = 0 ; i < 4 ; ++i )
+			{
+				if( m_nFaceIdx == i )
+					bFillRect( canvas, 1, m_nCenterY -100 +i *50, 50, 50, 128, 128, 128, 0 );
+				else
+					bFillRect( canvas, 1, m_nCenterY -100 +i *50, 50, 50, 255, 255, 255, 0 );
+				bDrawRect( canvas, 1, m_nCenterY -100 +i *50, 50, 50, 0, 0, 0, 0 );
+				putStrCenter( canvas, 25, m_nCenterY -100 +i *50 +10, " "+(i +1)+" ", 0, 0 ,0 ,0 );
+			}
+			
+			break;
+		}
+ 		
+ 		bDrawRect( canvas, 0, 0,m_nScrWidth, m_nScrHeight, 255, 0, 0, 0 );
+ 		//putStr( canvas, 10, 10, "original", 0 , 0 ,0 ,0 );
+ 		//putStr( canvas, 10, 10, Math.floor(m_nMovePointX) + " "+Math.floor(m_nMovePointY) +" "+Img_DisOriginal.width, 0 , 0 ,0 ,0 );
+ 		//consol.log("AAAA");
+	} 	
+ 	
+ 	var comp1;
+ 	function checkFace1(image)
+ 	{
+ 		comp1 = ccv.detect_objects({ "canvas" : ccv.grayscale(ccv.pre(image)),
+			"cascade" : cascade,
+			"interval" : 5,//체크 인원수 
+			"min_neighbors" : 1 });
+ 	}
+ 	
+ 	var comp2;
+ 	function checkFace2(image)
+ 	{
+ 		comp2 = ccv.detect_objects({ "canvas" : ccv.grayscale(ccv.pre(image)),
+			"cascade" : cascade,
+			"interval" : 5,//체크 인원수 
+			"min_neighbors" : 1 });
+ 	}
+ 	
+ 	//abcdefg
+ 	function GetImageOriginal(image)
+ 	{
+		var canvas2 = document.createElement('canvas');
+		canvas2.width = image.width;
+		canvas2.height = image.height;
+		
+		var context2 = canvas2.getContext('2d');
+		context2.drawImage(image, 0, 0);
+			   
+		var imgData=context2.getImageData(0,0,canvas2.width,canvas2.height);
+		context2.putImageData(imgData,0,0);
+		return canvas2.toDataURL();
+ 	}
+ 	
+ 	function GetImagespherize(image, sx, sy, dx, dy )
+ 	{
+ 		var canvas2 = document.createElement('canvas');
+		canvas2.width = image.width;
+		canvas2.height = image.height;
+		
+		var context2 = canvas2.getContext('2d');
+		context2.drawImage(image, 0, 0);
+		
+		var imgData=context2.getImageData(sx,sy,dx,dy);
+		var imgData2=context2.getImageData(sx,sy,dx,dy);
+		
+		var idx, idx2;
+		var width = dx;
+		var height = dy;
+		var px, py;
+		
+		for(var ix = 0; ix < width; ix++) 
+		{
+		    for(var iy = 0; iy < height; iy++)
+		    {
+		    	px = ix;
+		    	py = iy;
+		    	var x = px-width/2;
+		        var y = py-height/2;
+		        var r = Math.sqrt(x*x+y*y);
+		        var maxr = width/2;
+		        if (r>maxr)
+		        {
+		        	px = x;
+		        	py = y;
+		        }
+		        else
+		        	{
+		        	var a = Math.atan2(y,x);
+			        var k = (r/maxr)*(r/maxr)*0.5+0.5;
+			        var dx = Math.cos(a)*r*k;
+			        var dy = Math.sin(a)*r*k;
+			        px = dx+width/2;
+				    py = dy+height/2;	
+		        	}
+		         
+		    	if( (px %1 == 0 || py %1 == 0) && px != width /2 && (py != height /2)  )
+		    		continue;
+		    	px = Math.floor(px);
+		    	py = Math.floor(py);
+		    	
+		    	
+		    	
+				idx = (ix +iy *width) *4;
+				idx2 = (px +py *width) *4;
+				if( idx > 0 && idx2 > 0 && idx < width *height *4 && idx2 < width *height *4  )
+	        	{
+	        		imgData.data[idx] = imgData2.data[idx2];
+			        imgData.data[idx +1] = imgData2.data[idx2 +1];
+			        imgData.data[idx +2] = imgData2.data[idx2 +2];	
+	        	}
+		        
+		    }
+		}
+		
+		context2.drawImage(image, 0, 0);
+ 		context2.putImageData(imgData,sx,sy);
+ 		return canvas2.toDataURL();
+		//Img_DisResult.src = canvas2.toDataURL();
+	}
+ 	
+ 	function GetImagetwirl(image, sx, sy, dx, dy )
+ 	{
+ 		var canvas2 = document.createElement('canvas');
+		canvas2.width = image.width;
+		canvas2.height = image.height;
+		
+		var context2 = canvas2.getContext('2d');
+		context2.drawImage(image, 0, 0);
+		
+		var imgData=context2.getImageData(sx,sy,dx,dy);
+		var imgData2=context2.getImageData(sx,sy,dx,dy);
+		
+		var idx, idx2;
+		var width = dx;
+		var height = dy;
+		var px, py;
+		
+		for(var ix = 0; ix < width; ix++) 
+		{
+		    for(var iy = 0; iy < height; iy++)
+		    {
+		    	px = ix;
+		    	py = iy;
+		    	var x = px-width/2;
+		        var y = py-height/2;
+		        var r = Math.sqrt(x*x+y*y);
+		        var maxr = width/2;
+		        
+		        if (r>maxr)
+		        {
+		        	px = x;
+		        	py = y;
+		        }
+		     	else
+		    	{
+		    	  var a = Math.atan2(y,x);
+			        a += 1-r/maxr;
+			        var dx = Math.cos(a)*r;
+			        var dy = Math.sin(a)*r;
+			     	px = dx+width/2;
+				    py = dy+height/2;
+			    }
+		         
+		    	if( (px %1 == 0 || py %1 == 0) && px != width /2 && (py != height /2)  )
+		    		continue;
+		    	px = Math.floor(px);
+		    	py = Math.floor(py);
+		    	
+		    	
+		    	
+				idx = (ix +iy *width) *4;
+				idx2 = (px +py *width) *4;
+				if( idx > 0 && idx2 > 0 && idx < width *height *4 && idx2 < width *height *4  )
+	        	{
+	        		imgData.data[idx] = imgData2.data[idx2];
+			        imgData.data[idx +1] = imgData2.data[idx2 +1];
+			        imgData.data[idx +2] = imgData2.data[idx2 +2];	
+	        	}
+		        
+		    }
+		}
+		
+ 		context2.putImageData(imgData,sx,sy);
+ 		return canvas2.toDataURL();
+	}
+ 	   
+ 	function GetImageMix(image1, sx1, sy1, dx1, dy1, image2, sx2, sy2, dx2, dy2 )
+ 	{
+ 		var canvas2 = document.createElement('canvas');
+ 		//var canvas2=document.getElementsByTagName("canvas")[0];
+ 		
+ 		var context2 = canvas2.getContext('2d');
+ 		
+ 		//var canvas3 = document.createElement('canvas1');
+ 		//var context3 = canvas3.getContext('2d');
+ 		
+		canvas2.width = image1.width;
+		canvas2.height = image1.height;
+		
+	//	canvas3.width = dx1;
+	//	canvas3.height = dy1;
+	
+		sx1 = Math.floor(sx1);
+		sy1 = Math.floor(sy1);
+		dx1 = Math.floor(dx1);
+		dy1 = Math.floor(dy1);
+		
+		sx2 = Math.floor(sx2);
+		sy2 = Math.floor(sy2);
+		dx2 = Math.floor(dx2);
+		dy2 = Math.floor(dy2);
+		
+		context2.drawImage(image1, 0, 0);
+		var imgData=context2.getImageData(0,0,canvas2.width,canvas2.height);
+		
+		context2.drawImage(image2, sx2, sy2, dx2, dy2, sx1, sy1, dx1, dy1);
+		var imgData2=context2.getImageData(sx1,sy1,dx1,dy1);
+	
+		var idx,idx1;
+		var nCnt, nCnt1;
+		var nDxCnt;
+		for( var y = 0 ; y < dy1 ; ++y )
+		{
+			nCnt = 0;
+			nCnt1 = 0;
+			for( var x = 0 ; x < dx1 ; ++x )
+			{
+				
+				if( x < (y -dy1 /2) /3  || x > dx1 -(y -dy1 /2) /3 )
+					continue;
+				if( y < dy1 /2 )
+					nDxCnt = dx1;// -(y -dy1 /2) /3;
+				else
+					nDxCnt = dx1 -(y -dy1 /2) /3;
+				nCnt++;	
+				idx = ((sy1 +y) *canvas2.width +(sx1 +x)) *4;
+				idx1 = (x +y *dx1) *4;
+				
+				if( x >= nDxCnt -10 && y >= dy1 -10 )
+				{
+				//	imgData.data[idx] = (imgData2.data[idx1 -4] +imgData.data[idx -4]) /2;
+				//	imgData.data[idx +1] = (imgData2.data[idx1 -4 +1] +imgData.data[idx -4 +1]) /2;
+				//	imgData.data[idx +2] = (imgData2.data[idx1 -4 +2] +imgData.data[idx -4 +2]) /2;
+					nCnt1 = 10 -(dy1 -y);
+					if( x > nDxCnt -10 +nCnt1 )
+					{
+						imgData.data[idx] = (imgData2.data[idx1]  *(nDxCnt -x) +imgData.data[idx] *(10 -(nDxCnt -x))) /10;
+						imgData.data[idx +1] = (imgData2.data[idx1 +1] *(nDxCnt -x) +imgData.data[idx +1] *(10 -(nDxCnt -x))) /10;
+						imgData.data[idx +2] = (imgData2.data[idx1 +2] *(nDxCnt -x) +imgData.data[idx +2] *(10 -(nDxCnt -x))) /10;
+					}
+					else// if( x < nDxCnt -10 +nCnt1 )
+					{
+						imgData.data[idx] = (imgData2.data[idx1]  *(dy1 -y) +imgData.data[idx] *(10 -(dy1 -y))) /10;
+						imgData.data[idx +1] = (imgData2.data[idx1 +1] *(dy1 -y) +imgData.data[idx +1] *(10 -(dy1 -y))) /10;
+						imgData.data[idx +2] = (imgData2.data[idx1 +2] *(dy1 -y) +imgData.data[idx +2] *(10 -(dy1 -y))) /10;
+					}
+				
+				//	imgData.data[idx] = (imgData.data[idx] +imgData2.data[idx1]) /2;
+				//	imgData.data[idx +1] = (imgData.data[idx +1] +imgData2.data[idx1 +1]) /2;
+				//	imgData.data[idx +2] = (imgData.data[idx +2] +imgData2.data[idx1 +2]) /2;
+				
+				//	imgData.data[idx] = (imgData2.data[idx1]  *(dy1 -y) +imgData.data[idx] *(10 -(dy1 -y))) /10;
+				//	imgData.data[idx +1] = (imgData2.data[idx1 +1] *(dy1 -y) +imgData.data[idx +1] *(10 -(dy1 -y))) /10;
+				//	imgData.data[idx +2] = (imgData2.data[idx1 +2] *(dy1 -y) +imgData.data[idx +2] *(10 -(dy1 -y))) /10;
+				}
+				else if( nCnt < 10 )
+				{
+					imgData.data[idx] = (imgData2.data[idx1]  *nCnt +imgData.data[idx] *(10 -nCnt)) /10;
+					imgData.data[idx +1] = (imgData2.data[idx1 +1] *nCnt +imgData.data[idx +1] *(10 -nCnt)) /10;
+					imgData.data[idx +2] = (imgData2.data[idx1 +2] *nCnt +imgData.data[idx +2] *(10 -nCnt)) /10;	
+				}
+				else if( x > nDxCnt -10 && y < dy1 -10)
+				{
+					imgData.data[idx] = (imgData2.data[idx1]  *(nDxCnt -x) +imgData.data[idx] *(10 -(nDxCnt -x))) /10;
+					imgData.data[idx +1] = (imgData2.data[idx1 +1] *(nDxCnt -x) +imgData.data[idx +1] *(10 -(nDxCnt -x))) /10;
+					imgData.data[idx +2] = (imgData2.data[idx1 +2] *(nDxCnt -x) +imgData.data[idx +2] *(10 -(nDxCnt -x))) /10;
+				}
+				else if( y < 10 )
+				{
+					imgData.data[idx] = (imgData2.data[idx1]  *y +imgData.data[idx] *(10 -y)) /10;
+					imgData.data[idx +1] = (imgData2.data[idx1 +1] *y +imgData.data[idx +1] *(10 -y)) /10;
+					imgData.data[idx +2] = (imgData2.data[idx1 +2] *y +imgData.data[idx +2] *(10 -y)) /10;
+				}
+				else if( x < nDxCnt -10 && y > dy1 -10  )
+				{
+					imgData.data[idx] = (imgData2.data[idx1]  *(dy1 -y) +imgData.data[idx] *(10 -(dy1 -y))) /10;
+					imgData.data[idx +1] = (imgData2.data[idx1 +1] *(dy1 -y) +imgData.data[idx +1] *(10 -(dy1 -y))) /10;
+					imgData.data[idx +2] = (imgData2.data[idx1 +2] *(dy1 -y) +imgData.data[idx +2] *(10 -(dy1 -y))) /10;
+				}
+				else
+				{
+					imgData.data[idx] = imgData2.data[idx1];
+					imgData.data[idx +1] = imgData2.data[idx1 +1];
+					imgData.data[idx +2] = imgData2.data[idx1 +2];
+				}
+			}
+		}
+		
+
+		context2.putImageData(imgData,0,0);
+		return canvas2.toDataURL();
+ 	}
+ 	
+ 	//variable to hold pending operation for captureImage 
+ 	var op = null; 
+ 	  
+ 	//success callback 
+ 	function onCaptureImageSuccess(filename) { 
+ 	  alert("Captured image path:" + filename); 
+ 	  op = null; 
+ 	} 
+ 	  
+ 	//error callback 
+ 	function onCaptureImageError(e) { 
+ 	  alert("Capture image failed with error:" + e.message); 
+ 	  op = null; 
+ 	} 
+/*
+ 	ax.ext.media.pickImage({}, function(finename){
+ 		deviceapis.filesystem.resolve( function(file){
+			ax.ext.ui.alert(file.toURI()); 			
+ 		}, errorCallback, filename, "r";)
+ 	}, errorCallback);
+ 	*/
+ 	//abcdefg
+</script>
+</head>
+<body>
+ <div>
+  <canvas id="myCanvas" width="device-width" height="device-height">
+  	Your browser does not support HTML5 Canvas
+  </canvas>
+ </div>
+</body>
+</html>
