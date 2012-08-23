@@ -76,16 +76,16 @@ function get_named_arguments(params, names) {
 	}
 }
 
-var ccv = {
+var ccv = {//modify by ggoiya 2012.08.24
 	pre : function (image) {
 		if (image.tagName.toLowerCase() == "img") {
 			var canvas = document.createElement("canvas");
 			document.body.appendChild(image);
-			canvas.width = image.offsetWidth;
-			canvas.style.width = image.offsetWidth.toString() + "px";
-			canvas.height = image.offsetHeight;
-			canvas.style.height = image.offsetHeight.toString() + "px";
-			document.body.removeChild(image);
+			canvas.width = image.width;//image.offsetWidth;
+			//canvas.style.width = image.offsetWidth.toString() + "px";
+			canvas.height = image.height;//image.offsetHeight;
+			//canvas.style.height = image.offsetHeight.toString() + "px";
+			//document.body.removeChild(image);
 			var ctx = canvas.getContext("2d");
 			ctx.drawImage(image, 0, 0);
 			return canvas;

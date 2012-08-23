@@ -21,23 +21,18 @@ Ext.define("photo.view.Main", {
         	            { xtype: 'button',action: 'Home',iconCls: 'home',iconMask: true } 
         	   ]
            },
-           {
-        	   xtype : 'toolbar',
-        	   docked: 'bottom',
-        	   items: [
-        	           	{ xtype: 'button',text:'camera', action: 'Camera',iconCls: 'star',iconMask: true },
-        	           	{ xtype: 'button',text:'album', action: 'Album',iconCls: 'action',iconMask: true }
-               ]
-           },
-           {
-        	   xtype : 'modeselection'  
-           },
-           {
-        	   xtype : 'distortionimageselection'  
-           },
-           {
-        	   xtype : 'miximageselection'  
-           }
+//           {
+//        	   xtype : 'toolbar',
+//        	   docked: 'bottom',
+//        	   items: [
+//        	           	{ xtype: 'button',text:'camera', action: 'Camera',iconCls: 'star',iconMask: true },
+//        	           	{ xtype: 'button',text:'album', action: 'Album',iconCls: 'action',iconMask: true },
+//        	           	{ xtype: 'button',text:'useimage', action: 'UseImage', disabled:true }
+//               ]
+//           },
+           { xtype : 'modeselection'},
+           { xtype : 'distortion'},
+           { xtype : 'mix'}
         ]
     }
 });

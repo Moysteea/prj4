@@ -9,14 +9,14 @@ Ext.define('photo.controller.MainController', {
         	main : 'main',
         	titlebar : 'titlebar',
         	home : 'modeselection',
-        	distortionIS : 'distortionimageselection',
-        	mixIS : 'miximageselection' 
+        	distortion : 'distortion',
+        	mix : 'mix' 
         },
         control: {
-            'modeselection button[action=DistortionIS]' : {
+            'modeselection button[action=Distortion]' : {
             	tap : 'onSetPage'
             },
-            'modeselection button[action=MixIS]' : {
+            'modeselection button[action=Mix]' : {
             	tap : 'onSetPage'
             },
             'titlebar button[action=Home]' : {
@@ -31,9 +31,8 @@ Ext.define('photo.controller.MainController', {
         }
     },
     onSetPage: function(button, e) {
-    	//console.log(this.getTitlebar());
-    	//Ext.getCmp(this.geTitlbar()).setTitle('Changed Title');
-    	this.getTitlebar().setTitle(button.action);
+    	this.getMain().getActiveItem().destroy();
+    	this.getTitlebar().setTitle(button._text);
     	this.getMain().setActiveItem( this["get" + button.action]() );
     },
     onClickCamera: function(button, e) {

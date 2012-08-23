@@ -9,23 +9,14 @@ Ext.define('photo.view.ModeSelection', {
         },
         items: [
             {
-                xtype: 'button',
-                action: 'DistortionIS',//IS : ImageSelection
-                width: 200,
-                text: 'Distortion'
+                xtype: 'button', action: 'Distortion', width: 200, text: 'Distortion'
             },
             {
-                xtype: 'button',
-                action: 'MixIS',
-                width: 200,
-                text: 'Mix'
-            }//,
-//            {
-//                xtype: 'button',
-//                itemId: 'compostionBtn',
-//                width: 200,
-//                text: 'Composition'
-//            }
+                xtype: 'button', action: 'Mix', width: 200, text: 'Mix'
+            }
         ]
+	},
+	destroy : function(){
+		console.log('HOME destroy');
 	}
 });

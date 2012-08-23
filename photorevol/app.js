@@ -7,7 +7,7 @@ Ext.application({
         'Ext.MessageBox'
     ],
 
-    views: ['Main','ModeSelection','DistortionImageSelection','MixImageSelection'],
+    views: ['Main','ModeSelection','Distortion','Mix'],
 
     icon: {
         '57': 'resources/icons/Icon.png',
