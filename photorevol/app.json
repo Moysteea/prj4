@@ -39,6 +39,21 @@
             "path": "app.js",
             "bundle": true,  /* Indicates that all class dependencies are concatenated into this file when build */
             "update": "delta"
+        },
+        {
+            "path": "app/lib/ccv.js",
+            "bundle": true,  /* Indicates that all class dependencies are concatenated into this file when build */
+            "update": "delta"
+        },
+        {
+            "path": "app/lib/face.js",
+            "bundle": true,  /* Indicates that all class dependencies are concatenated into this file when build */
+            "update": "delta"
+        },
+        {
+            "path": "app/lib/filter.js",
+            "bundle": true,  /* Indicates that all class dependencies are concatenated into this file when build */
+            "update": "delta"
         }
     ],
 
@@ -123,7 +138,7 @@
         "product": "touch",
         "minVersion": 3,
         "debug": false,
-        "logger": "no"
+        "logger": false
     },
 
     /**
